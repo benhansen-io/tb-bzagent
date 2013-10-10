@@ -8,7 +8,7 @@
   :cljsbuild {
     :builds {
       :main {:source-paths ["src-cljs-agent"]
-            :compiler {:output-to "build/agent.js" :optimizations :advanced :target :nodejs}
+            :compiler {:output-to "build/agent.js" :optimizations :simple :target :nodejs}
       }
     }
   }
