@@ -31,7 +31,7 @@ Team.prototype.init = function() {
         me.bases = bases;
     });
     this.client.getMyTanks(function(myTanks, time){
-        myTanks.slice(0,1).forEach(function(tank){
+        myTanks.forEach(function(tank){
             me.myTanks[tank.index] = tank;
             me.lastUpdated = time;
         });
@@ -49,7 +49,7 @@ Team.prototype.update = function(done) {
     }
     client.getMyTanks(function(myTanks, time){
         var dt = time-me.lastUpdated;
-        myTanks.slice(0,1).forEach(function(tank){
+        myTanks.forEach(function(tank){
             var dvx = (tank.vx - me.myTanks[tank.index].vx)/dt;
             var dvy = (tank.vy - me.myTanks[tank.index].vy)/dt;
             var dangvel = (tank.angvel - me.myTanks[tank.index].angvel)/dt;
