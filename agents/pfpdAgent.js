@@ -55,17 +55,11 @@ Team.prototype.update = function(done) {
     client.getMyTanks(function(myTanks, time){
         dt = time-me.lastUpdated;
         myTanks.forEach(function(tank){
-            var dvx = (tank.vx - me.myTanks[tank.index].vx)/dt;
-            var dvy = (tank.vy - me.myTanks[tank.index].vy)/dt;
-            var dangvel = (tank.angvel - me.myTanks[tank.index].angvel)/dt;
             var lastVelError = me.myTanks[tank.index].lastVelError;
             var lastAngleError = me.myTanks[tank.index].lastAngleError;
             me.myTanks[tank.index] = tank;
             me.myTanks[tank.index].lastVelError = lastVelError;
             me.myTanks[tank.index].lastAngleError = lastAngleError;
-            me.myTanks[tank.index].dvx = dvx;
-            me.myTanks[tank.index].dvy = dvy;
-            me.myTanks[tank.index].dangvel = dangvel;
         });
 
         me.lastUpdated = time;
@@ -113,13 +107,13 @@ Team.prototype.tick = function(callback) {
         for(var tankIndex in me.myTanks) {
             console.log('Updating tank ' + tankIndex + ':');
             var tank = me.myTanks[tankIndex];
-            var tankdxy = [tank.dvx, tank.dvy];
+            var tankvxy = [tank.vx, tank.vy];
             var pfdxy = [0.23, 0.51];// from potential fields
 
             // velocity pd
             var goalVel = pf.distance(pfdxy, origin);
             console.log('\tgoalVel: ' + goalVel);
-            var actualVel = pf.distance(tankdxy, origin);
+            var actualVel = pf.distance(tankvxy, origin);
             console.log('\tactualVel: ' + actualVel);
             var velError = goalVel - actualVel;
             console.log('\tvelError: ' + velError + '; lastVelError: ' + tank.lastVelError);
@@ -130,7 +124,7 @@ Team.prototype.tick = function(callback) {
 
             // angle pd
             var goalAngle = pf.angle(pfdxy, origin);
-            var actualAngle = pf.angle(tankdxy, origin);
+            var actualAngle = pf.angle(tankvxy, origin);
             var angleError = goalAngle - actualAngle;
             var newAngleVel = pf.pdControllerError(angleError, tank.lastAngleError, dt);
             tank.lastAngleError = angleError;
