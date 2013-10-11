@@ -36,6 +36,10 @@ Team.prototype.init = function() {
             me.lastUpdated = time;
         });
     });
+    me.myTanks = {
+        '0': me.myTanks[0],
+        '1': me.myTanks[1]
+    };
 };
 
 Team.prototype.update = function(done) {
@@ -58,6 +62,10 @@ Team.prototype.update = function(done) {
             me.myTanks[tank.index].dvy = dvy;
             me.myTanks[tank.index].dangvel = dangvel;
         });
+        me.myTanks = {
+            '0': me.myTanks[0],
+            '1': me.myTanks[1]
+        };
 
         me.lastUpdated = time;
         received();
