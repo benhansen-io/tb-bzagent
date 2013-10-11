@@ -81,17 +81,20 @@ Team.prototype.update = function(done) {
 
 Team.prototype.start = function() {
     var me = this;
-    async.whilst(function() {return true;},
-                 function(callback) {
-                     async.series([
-                         me.haveTanksShootRandomly.bind(me),
-                         me.startTanks.bind(me),
-                         function(callback) {console.log('Waiting'); setTimeout(callback, 8000);},
-                         me.stopTanks.bind(me),
-                         me.turnTanks.bind(me),
-                     ],
-                     callback);
-                 });
+
+    me.startTanks(function() {
+        me.haveTanksShootRandomly(function () {
+            async.whilst(function() {return true;},
+                         function(callback) {
+                             async.series([
+                                 function(callback) {console.log('Waiting'); setTimeout(callback, 8000);},
+                                 //me.stopTanks.bind(me),
+                                 me.turnTanks.bind(me),
+                             ],
+                             callback);
+                         });
+        });
+    });
 };
 
 Team.prototype.startTanks = function(callback) {
