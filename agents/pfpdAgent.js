@@ -1,6 +1,9 @@
-var BZRClient = require('bzrflag-client');
-var async = require('async');
-var pf = require('../lib/potential-fields');
+'use strict';
+
+var BZRClient = require('bzrflag-client'),
+    async = require('async'),
+    pf = require('../lib/potential-fields'),
+    smallestCircle = require('../lib/smallest-circle');
 
 
 /**
@@ -40,6 +43,37 @@ Team.prototype.init = function() {
             me.lastUpdated = time;
         });
     });
+    this.client.getObstacles(function(obstacles) {
+        me.obstacles = obstacles;
+    });
+};
+
+Team.prototype.getFields = function() {
+    var me = this;
+
+    var obstacles = this.obstacles.map(function(points) {
+        var circle = smallestCircle(points);
+        return {
+            location: [circle.x, circle.y],
+            radius: circle.r,
+            spread: 5,
+            type: 'avoid'
+        };
+    });
+
+    var flags = this.flags.map(function(flag) {
+        if (flag.color === me.constants.team)
+            return null;
+
+        return {
+            location: [flag.loc.x, flag.loc.y],
+            radius: 1,
+            spread: 100,
+            type: 'seek'
+        };
+    }).filter(function(field) { return field; });
+
+    return obstacles.concat(flags);
 };
 
 Team.prototype.update = function(done) {
@@ -108,7 +142,7 @@ Team.prototype.tick = function(callback) {
             console.log('Updating tank ' + tankIndex + ':');
             var tank = me.myTanks[tankIndex];
             var tankvxy = [tank.vx, tank.vy];
-            var pfdxy = [0.23, 0.51];// from potential fields
+            var pfdxy = pf.gradient([tank.loc.x, tank.loc.y], me.getFields());
 
             // velocity pd
             var goalVel = pf.distance(pfdxy, origin);
