@@ -31,14 +31,14 @@ for (var x = 0; x < 50; x++) {
     }
 }
 
-
+var width = 800, height = 600;
 
 var xscale = d3.scale.linear()
                .domain([0,50])
-               .range([0,720]),
+               .range([0,width]),
     yscale = d3.scale.linear()
                .domain([0,50])
-               .range([0,487]),
+               .range([0,height]),
     map = d3.floorplan().xScale(xscale).yScale(yscale),
     vectorfield = d3.floorplan.vectorfield(),
     mapdata = {};
@@ -53,12 +53,22 @@ var data = {
 mapdata[vectorfield.id()] = data;
 	
 var svg = d3.select('#demo').append('svg')
-    .attr('width',720)
-    .attr('height', 487)
+    .attr('width',width)
+    .attr('height', height)
     .datum(mapdata).call(map);
 
 svg.select('defs').append('marker')
     .attr('id', 'arrowhead')
+    .attr('refX', 0)
+    .attr('refY', 1.5)
+    .attr('markerWidth', 4)
+    .attr('markerHeight', 4)
+    .attr('orient', 'auto')
+    .append('path')
+        .attr('d', 'M 0,0 V 3 L4,1.5 Z');
+
+svg.select('defs').append('marker')
+    .attr('id', 'arrowhead-small')
     .attr('refX', 0)
     .attr('refY', 1)
     .attr('markerWidth', 3)

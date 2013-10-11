@@ -46,7 +46,7 @@ d3.floorplan.vectorfield = function() {
                 var x = p.value.x, y = p.value.y,
                     mag = Math.sqrt(x*x + y*y);
                 
-                return mag > 0.1 ? 'url(#arrowhead)' : '';
+                return mag > 0.1 ? 'url(#arrowhead)' : 'url(#arrowhead-small)';
             })
 			.append("title");
 			

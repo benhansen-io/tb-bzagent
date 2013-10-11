@@ -1,6 +1,8 @@
+'use strict';
+
 var express = require('express'),
-	app = express(),
-	browserify = require('browserify-middleware');
+    app = express(),
+    browserify = require('browserify-middleware');
 
 app.use(app.router);
 app.use(express.static(__dirname));
