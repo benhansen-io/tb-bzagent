@@ -59,11 +59,29 @@ Team.prototype.getFields = function(tank) {
         return {
             location: [circle.x, circle.y],
             radius: circle.r,
-            spread: 5,
+            spread: 50,
             type: 'avoid'
         };
     });
     fields = fields.concat(obstacles);
+
+    var teamMatesWithFlags = [];
+    for(var tankIndex in me.myTanks) {
+        var otherTank = me.myTanks[tankIndex];
+        if(tankIndex == tank.index) {
+            continue;
+        }
+        if(otherTank.flag == '-') {
+            continue;
+        }
+        teamMatesWithFlags.push({
+            location: [otherTank.x, otherTank.y],
+            radius: 2,
+            spread: 10,
+            type: 'avoid'
+        });
+    }
+    fields = fields.concat(teamMatesWithFlags);
 
 
     if(!hasFlag) {
@@ -208,7 +226,7 @@ Team.prototype.tick = function(callback) {
             console.log('\tactualAngle: ' + actualAngle);
             var angleError = pf.normalizeAngle(goalAngle - actualAngle);
             console.log('\tangleError: ' + angleError + '; lastAngleError: ' + tank.lastAngleError);
-            var newAngleVel = pf.pdControllerError(angleError, tank.lastAngleError, dt, 0.5, 0.1);
+            var newAngleVel = pf.pdControllerError(angleError, tank.lastAngleError, dt, 0.5, 0.01);
             console.log('\tnewAngleVel: ' + newAngleVel);
             tank.lastAngleError = angleError;
             me.client.angvel(tankIndex, newAngleVel);
