@@ -1,5 +1,3 @@
-'use strict';
-
 var BZRClient = require('bzrflag-client');
 var async = require('async');
 var pf = require('../lib/potential-fields');
@@ -86,7 +84,7 @@ Team.prototype.start = function() {
     async.whilst(function() {return true;},
                  function(callback) {
                      async.series([
-                         //this.haveTanksShootRandomly.bind(this),
+                         me.haveTanksShootRandomly.bind(me),
                          me.startTanks.bind(me),
                          function(callback) {console.log('Waiting'); setTimeout(callback, 8000);},
                          me.stopTanks.bind(me),
@@ -112,11 +110,13 @@ Team.prototype.haveTanksShootRandomly = function(callback) {
         for(var tankIndex in me.myTanks) {
             if (me.myTanks.hasOwnProperty(tankIndex)) {
                 console.log('setting interval');
-                setInterval(me.client.shoot.bind(me.client, tankIndex), Math.random() + 1.5);
+                setInterval(me.client.shoot.bind(me.client, tankIndex), Math.random() * 1000 + 1500);
             }
         }
         console.log('done setting intervals');
-        callback();
+        if(callback) {
+            callback();
+        }
     });
 };
 
