@@ -123,7 +123,7 @@ Team.prototype.start = function() {
                  function(callback) {
                      async.series([
                          me.tick.bind(me),
-                         //function(callback) {setTimeout(callback, 10000);},
+                         //function(callback) {setTimeout(callback, 2000);},
                      ],
                      callback);
                  });
@@ -141,6 +141,7 @@ Team.prototype.tick = function(callback) {
         for(var tankIndex in me.myTanks) {
             console.log('Updating tank ' + tankIndex + ':');
             var tank = me.myTanks[tankIndex];
+            //console.log(JSON.stringify(tank));
             var tankvxy = [tank.vx, tank.vy];
             console.log('\ttankvxy: ' + JSON.stringify(tankvxy));
             var pfdxy = pf.gradient([tank.loc.x, tank.loc.y], me.getFields());
@@ -153,7 +154,10 @@ Team.prototype.tick = function(callback) {
             console.log('\tactualVel: ' + actualVel);
             var velError = goalVel - actualVel;
             console.log('\tvelError: ' + velError + '; lastVelError: ' + tank.lastVelError);
-            var newVel = pf.pdControllerError(velError, tank.lastVelError, dt);
+            var newVel = actualVel + pf.pdControllerError(velError, tank.lastVelError, dt, 0.3, 0.1);
+            if(newVel < 0) {
+                newVel = 0;
+            }
             console.log('\tnewVel: ' + newVel);
             tank.lastVelError = velError;
             me.client.speed(tankIndex, newVel);
@@ -165,10 +169,14 @@ Team.prototype.tick = function(callback) {
             console.log('\tactualAngle: ' + actualAngle);
             var angleError = pf.normalizeAngle(goalAngle - actualAngle);
             console.log('\tangleError: ' + angleError + '; lastAngleError: ' + tank.lastAngleError);
-            var newAngleVel = pf.pdControllerError(angleError, tank.lastAngleError, dt);
+            var newAngleVel = pf.pdControllerError(angleError, tank.lastAngleError, dt, 0.5, 0.1);
             console.log('\tnewAngleVel: ' + newAngleVel);
             tank.lastAngleError = angleError;
             me.client.angvel(tankIndex, newAngleVel);
+
+            if(tank.shotsAvailable > 0) {
+                me.client.shoot(tankIndex);
+            }
         }
         callback();
     });
