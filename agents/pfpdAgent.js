@@ -48,8 +48,11 @@ Team.prototype.init = function() {
     });
 };
 
-Team.prototype.getFields = function() {
+Team.prototype.getFields = function(tank) {
     var me = this;
+    var hasFlag = tank.flag != '-';
+
+    var fields = [];
 
     var obstacles = this.obstacles.map(function(points) {
         var circle = smallestCircle(points);
@@ -60,20 +63,54 @@ Team.prototype.getFields = function() {
             type: 'avoid'
         };
     });
+    fields = fields.concat(obstacles);
 
-    var flags = this.flags.map(function(flag) {
-        if (flag.color === me.constants.team)
-            return null;
 
-        return {
-            location: [flag.loc.x, flag.loc.y],
-            radius: 1,
-            spread: 100,
-            type: 'seek'
+    if(!hasFlag) {
+        var flags = this.flags.map(function(flag) {
+            //console.log(JSON.stringify(flag));
+            if (flag.color === me.constants.team ||
+                flag.possessionColor === me.constants.team)
+                return null;
+
+            return {
+                location: [flag.loc.x, flag.loc.y],
+                radius: 1,
+                spread: 100,
+                type: 'seek'
+            };
+        }).filter(function(field) { return field; });
+        fields = fields.concat(flags);
+    }
+
+    if(hasFlag) {
+        var cornersToLocation = function(corners) {
+            var sumX = 0;
+            var sumY = 0;
+            corners.forEach(function(corner) {
+                sumX += corner.x;
+                sumY += corner.y;
+            });
+            return [sumX / corners.length, sumY / corners.length];
         };
-    }).filter(function(field) { return field; });
 
-    return obstacles.concat(flags);
+        var bases = this.bases.map(function(base) {
+            //console.log(JSON.stringify(base));
+            if (base.color === me.constants.team) {
+                return {
+                    location: cornersToLocation(base.corners),
+                    radius: 1,
+                    spread: 100,
+                    type: 'seek'
+                };
+            } else {
+                return null;
+            }
+        }).filter(function(field) { return field; });
+        fields = fields.concat(bases);
+    }
+
+    return fields;
 };
 
 Team.prototype.update = function(done) {
@@ -144,7 +181,9 @@ Team.prototype.tick = function(callback) {
             //console.log(JSON.stringify(tank));
             var tankvxy = [tank.vx, tank.vy];
             console.log('\ttankvxy: ' + JSON.stringify(tankvxy));
-            var pfdxy = pf.gradient([tank.loc.x, tank.loc.y], me.getFields());
+            var tanksFields = me.getFields(tank);
+            //console.log(JSON.stringify(tanksFields));
+            var pfdxy = pf.gradient([tank.loc.x, tank.loc.y], tanksFields);
             console.log('\tpfdxy: ' + JSON.stringify(pfdxy));
 
             // velocity pd
