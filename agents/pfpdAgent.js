@@ -59,7 +59,7 @@ Team.prototype.getFields = function(tank) {
         return {
             location: [circle.x, circle.y],
             radius: circle.r,
-            spread: 50,
+            spread: 40,
             type: 'avoid'
         };
     });
@@ -178,7 +178,7 @@ Team.prototype.start = function() {
                  function(callback) {
                      async.series([
                          me.tick.bind(me),
-                         //function(callback) {setTimeout(callback, 2000);},
+                         function(callback) {setTimeout(callback, 300);},
                      ],
                      callback);
                  });
