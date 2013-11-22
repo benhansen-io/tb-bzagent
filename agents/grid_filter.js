@@ -4,7 +4,8 @@ var BZRClient = require('bzrflag-client'),
     async = require('async'),
     pf = require('../lib/potential-fields'),
     smallestCircle = require('../lib/smallest-circle'),
-    http = require('http');
+    http = require('http'),
+    fs = require('fs');
 
 
 /**
@@ -262,21 +263,24 @@ if(process.argv.length > 2) {
     new Team(new BZRClient(port)).init(function(team) {
         team.start();
         http.createServer(function (req, res) {
-            res.writeHead(200, {'Content-Type': 'text/html'});
-            var html = '<html><head><style>pre {font-size:2; line-height:50%}</style></head><body><pre>';
-            team.gridFilter.forEach(function(row, rowIndex) {
-                row.forEach(function(value, colIndex) {
-                    var color = 255 * value;
-                    if(color > 40) {
-                        html += 'X';
-                    } else {
-                        html += ' ';
+            if(req.url == '/') {
+                console.log("HTML requested");
+                fs.readFile('./visualize_grid_filter.html', 'utf8', function (err,data) {
+                    if (err) {
+                        return console.log(err);
                     }
+                    res.writeHead(200, {'Content-Type': 'text/html'});
+                    res.end(data);
+                    console.log("Delivered HTML");
                 });
-                html += '<br>\n';
-            });
-            html += "</pre></body></html>";
-            res.end(html);
+            } else if(req.url == '/data.json') {
+                console.log("JSON requested");
+                res.writeHead(200, {'Content-Type': 'application/json'});
+                res.end(JSON.stringify(team.gridFilter));
+                console.log("Delivered JSON");
+            } else {
+                console.log("Unknown url requested: " + req.url);
+            }
         }).listen(8080);
     });
 } else {

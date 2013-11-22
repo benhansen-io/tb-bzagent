@@ -1,0 +1,62 @@
+<html>
+<head>
+</head>
+<body>
+<button id="refresh">Refesh</button>
+<canvas id="grid"></canvas>
+<script type="text/javascript">
+var canvas = document.getElementById("grid");
+var refreshButton = document.getElementById("refresh");
+
+refreshButton.onclick = retrieveAndPaintData;
+
+function retrieveAndPaintData() {
+    retrieveData(function(err, data) {
+            if(!err) {
+                paintData(JSON.parse(data));
+                //console.log(data);
+            }
+    });
+}
+
+function retrieveData(callback) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "/data.json", true);
+    xhr.onload = function (e) {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                console.log("Retrieved data");
+                callback(null, xhr.responseText);
+            } else {
+                console.error(xhr.statusText);
+                callback(xhr.statusText);
+            }
+        }
+    };
+    xhr.onerror = function (e) {
+        console.error(xhr.statusText);
+    };
+    console.log("Requesting data")
+    xhr.send(null);
+}
+
+function paintData(data) {
+    console.log("Painting data");
+    var ctx = canvas.getContext('2d');
+    var width = data.length;
+    var height = data[0].length;
+    console.log("width:" + width);
+    console.log("height:" + height);
+    for(var x = 0; x < width; x+=100) {
+        for(var y = 0; y < width; y+=100) {
+            var shade = data[x][y];
+            console.log("Painting pixel " + x + "," + y + ": " + shade);
+            ctx.fillStyle = "rgb(" + shade + "," + shade + "," + shade + ")";
+            ctx.fillRect(x, y, 1, 1);
+        }
+    }
+    console.log("Done painting data");
+}
+</script>
+</body>
+</html>
