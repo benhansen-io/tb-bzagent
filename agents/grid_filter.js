@@ -23,6 +23,7 @@ Team.prototype.init = function(callback) {
         function(callback) {
             me.client.getConstants(function(constants) {
                 me.constants = constants;
+                //console.log(constants);
                 me.constants.worldsize = parseInt(me.constants.worldsize, 10);
                 me.coveringFields = pf.generateCoveringFields(me.constants.worldsize, 100);
                 me.gridFilter = createArray(me.constants.worldsize, me.constants.worldsize);
@@ -160,10 +161,39 @@ function fillArray(arr, fill) {
     }
 }
 
+Team.prototype.measurementProbability = function(observation, state) {
+    if(state === 1) {
+        if(observation === 1) {
+            return this.constants.truepositive;
+        } else {
+            return 1 - this.constants.truepositive;
+        }
+    } else {
+        if(observation === 0) {
+            return this.constants.truenegative;
+        } else {
+            return 1- this.constants.truenegative;
+        }
+    }
+};
+
 
 Team.prototype.processOccgrid = function(occGrid) {
     //console.log(occGrid.pos);
     //console.log(occGrid.size);
+    for(var x = 0; x < occGrid.size.x; x++) {
+        for(var y = 0; y < occGrid.size.y; y++) {
+            var gridX = occGrid.pos.x + x + 400;
+            var gridY = occGrid.pos.y + y + 400;
+            var observation = occGrid.grid[y][x];
+            // Our state doesn't change so we don't have a state transition
+            // I will just use the probability as the prodiction
+            var belief_true = this.measurementProbability(observation, 1) * this.gridFilter[gridX][gridY];
+            var belief_false = this.measurementProbability(observation, 0) * (1 - this.gridFilter[gridX][gridY]);
+            var normalizer = 1 / (belief_true + belief_false);
+            this.gridFilter[gridX][gridY] = belief_true * normalizer;
+        }
+    }
 };
 
 
@@ -235,7 +265,6 @@ if(process.argv.length > 2) {
             res.writeHead(200, {'Content-Type': 'text/html'});
             var html = '<html><head><style>pre {font-size:2; line-height:50%}</style></head><body><pre>';
             team.gridFilter.forEach(function(row, rowIndex) {
-                console.log("processing row: " + rowIndex);
                 row.forEach(function(value, colIndex) {
                     var color = 255 * value;
                     if(color > 40) {
