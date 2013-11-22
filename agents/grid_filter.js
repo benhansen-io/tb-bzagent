@@ -46,8 +46,9 @@ Team.prototype.init = function(callback) {
                     me.myTanks[tank.index].lastAngleError = 0;
                     me.myTanks[tank.index].vx = 0;
                     me.myTanks[tank.index].vy = 0;
-                    me.myTanks[tank.index].currentFieldIndex = 1;
-                    me.myTanks[tank.index].fieldRotationIncrement = 1;
+                    me.myTanks[tank.index].currentFieldIndex = Math.floor((Math.random()*me.coveringFields.length));
+                    //me.myTanks[tank.index].currentFieldIndex = 0;
+                    me.myTanks[tank.index].fieldRotationIncrement = Math.floor(Math.random()*2 - 1);
                     me.lastUpdated = time;
                 });
                 callback();
@@ -66,10 +67,70 @@ Team.prototype.getFields = function(tank) {
 
     var fields = [];
 
-    fields.push(this.coveringFields[tank.currentFieldIndex]);
-
-
+    if(!fieldsUpdated) {
+        // We are using the initial covering fields, just be attracted to one
+        fields.push(this.coveringFields[tank.currentFieldIndex]);
+        //fields.push(this.coveringFields[0]);
+    } else {
+        // We have updated the fields to many types and should be attracted to all
+        fields = me.fields;
+        //fields.push({
+        //    location: [0,0],
+        //    radius: 100,
+        //    spread: 100,
+        //    type: 'avoid'
+        //});
+    }
     return fields;
+};
+
+var fieldOccupiedThreshold = 0.95;
+var fieldUnoccupiedThreshold = 0.05;
+
+var fieldsUpdated = false;
+
+Team.prototype.convertTopLeftToCenter = function(position) {
+    var worldsize = this.constants.worldsize;
+    return [position[0] - worldsize / 2, -1 * (position[1] - worldsize / 2)];
+};
+
+
+Team.prototype.updateField = function(granulariy) {
+    var fields = [];
+    var me = this;
+    granulariy = granulariy || 20;
+
+
+    for(var x = 0; x < me.constants.worldsize; x += granulariy) {
+        for(var y = 0; y < me.constants.worldsize; y += granulariy) {
+            var probOccupied = me.gridFilter[x][y];
+            console.log(x + ", " + y);
+            console.log(probOccupied);
+            // Look for obstacles and create avoid fields at them.
+            if(probOccupied > fieldOccupiedThreshold) {
+                fields.push({
+                    location: this.convertTopLeftToCenter([x, y]),
+                    radius: 50,
+                    spread: 100,
+                    type: 'avoid'
+                });
+            } else if(probOccupied > fieldUnoccupiedThreshold) {
+                // An area we don't know about
+                // Areas we didn't find
+                fields.push({
+                    location: this.convertTopLeftToCenter([x, y]),
+                    radius: 1,
+                    spread: 100,
+                    strength: 4,
+                    type: 'seek'
+                });
+            }
+        }
+    }
+
+    me.fields = fields;
+    fieldsUpdated = true;
+    //console.log(fields);
 };
 
 Team.prototype.update = function(done) {
@@ -115,7 +176,7 @@ Team.prototype.update = function(done) {
 Team.prototype.start = function() {
     var me = this;
 
-    var tickSpeed = 500; // -1 means tick as fast as possible
+    var tickSpeed = -1; // -1 means tick as fast as possible
     var start = 0;
 
     async.whilst(function() {return true;},
@@ -179,13 +240,15 @@ Team.prototype.measurementProbability = function(observation, state) {
 };
 
 
+// Grid goes for 0-800 0,0 is top left
+// occGrid pos -400 to 400 where -400,-400 is bottom left
 Team.prototype.processOccgrid = function(occGrid) {
-    //console.log(occGrid.pos);
-    //console.log(occGrid.size);
+    //console.log("pos:" + JSON.stringify(occGrid.pos));
+    //console.log("size: " + JSON.stringify(occGrid.size));
     for(var x = 0; x < occGrid.size.x; x++) {
         for(var y = 0; y < occGrid.size.y; y++) {
             var gridX = occGrid.pos.x + x + 400;
-            var gridY = occGrid.pos.y + y + 400;
+            var gridY = this.constants.worldsize - (occGrid.pos.y + 400) + y;
             var observation = occGrid.grid[y][x];
             // Our state doesn't change so we don't have a state transition
             // I will just use the probability as the prodiction
@@ -197,15 +260,27 @@ Team.prototype.processOccgrid = function(occGrid) {
     }
 };
 
-
+var tickCount = 0;
 Team.prototype.tick = function(callback) {
     var me = this;
     var origin = [0, 0];
     this.update(function(dt){
+        tickCount++;
         //console.log('World updated after ' + dt + ' seconds');
         if(dt === 0) {
             console.log('Zero dt, changing to small value');
             dt = 0.0001;
+        }
+
+        var updateFreq;
+        if(!fieldsUpdated) {
+            updateFreq = 20;
+        } else {
+            updateFreq = 10;
+        }
+        if(tickCount % updateFreq == updateFreq - 1) {
+            console.log("Updating fields");
+            me.updateField();
         }
 
         for(var tankIndex in me.myTanks) {
@@ -232,7 +307,7 @@ Team.prototype.tick = function(callback) {
             //console.log('\tactualAngle: ' + actualAngle);
             var angleError = pf.normalizeAngle(goalAngle - actualAngle);
             //console.log('\tangleError: ' + angleError + '; lastAngleError: ' + tank.lastAngleError);
-            var newAngleVel = pf.pdControllerError(angleError, tank.lastAngleError, dt, 0.5, 0.01);
+            var newAngleVel = pf.pdControllerError(angleError, tank.lastAngleError, dt, 1, 0.01);
             //console.log('\tnewAngleVel: ' + newAngleVel);
             tank.lastAngleError = angleError;
             me.client.angvel(tankIndex, newAngleVel);
@@ -243,6 +318,11 @@ Team.prototype.tick = function(callback) {
             //console.log("Distance to goal field: " + distanceToField);
             if(distanceToField < 50) {
                 tank.currentFieldIndex += tank.fieldRotationIncrement;
+                if(tank.currentFieldIndex >= me.coveringFields.length) {
+                    tank.currentFieldIndex = 0;
+                } else if(tank.currentFieldIndex < 0) {
+                    tank.currentFieldIndex = me.coveringFields.length - 1;
+                }
             }
 
 
@@ -263,7 +343,36 @@ if(process.argv.length > 2) {
     new Team(new BZRClient(port)).init(function(team) {
         team.start();
         http.createServer(function (req, res) {
-            if(req.url == '/') {
+            if(req.url == '/fields.html') {
+                console.log("HTML requested");
+                fs.readFile('./visualize_fields.html', 'utf8', function (err,data) {
+                    if (err) {
+                        return console.log(err);
+                    }
+                    res.writeHead(200, {'Content-Type': 'text/html'});
+                    res.end(data);
+                    console.log("Delivered HTML");
+                });
+            } else if(req.url == '/fields_data.json') {
+                //console.log("JSON requested");
+                res.writeHead(200, {'Content-Type': 'application/json'});
+                var fields = team.getFields(team.myTanks[0]);
+                console.log(fields);
+                var fieldData = [];
+                var granularity = 30;
+                for(var x = 0; x < team.constants.worldsize / granularity; x++) {
+                    var rowArray = [];
+                    for(var y = 0; y < team.constants.worldsize / granularity; y++) {
+                        var tlPosition = [x * granularity + granularity / 2, y * granularity + granularity / 2];
+                        var mmPosition = team.convertTopLeftToCenter(tlPosition);
+                        var pfdxy = pf.gradient(mmPosition, fields);
+                        rowArray.push(pfdxy);
+                    }
+                    fieldData.push(rowArray);
+                }
+                res.end(JSON.stringify(fieldData));
+                //console.log("Delivered JSON");
+            } else if(req.url == '/occ.html') {
                 console.log("HTML requested");
                 fs.readFile('./visualize_grid_filter.html', 'utf8', function (err,data) {
                     if (err) {
@@ -273,11 +382,11 @@ if(process.argv.length > 2) {
                     res.end(data);
                     console.log("Delivered HTML");
                 });
-            } else if(req.url == '/data.json') {
-                console.log("JSON requested");
+            } else if(req.url == '/occ_data.json') {
+                //console.log("JSON requested");
                 res.writeHead(200, {'Content-Type': 'application/json'});
                 res.end(JSON.stringify(team.gridFilter));
-                console.log("Delivered JSON");
+                //console.log("Delivered JSON");
             } else {
                 console.log("Unknown url requested: " + req.url);
             }

@@ -1,0 +1,125 @@
+<html>
+<head>
+<style>
+canvas {
+    border-color: black;
+    border-style: solid;
+    border-width: 2px;
+}
+</style>
+</head>
+<body>
+<button id="refresh">Refesh</button><br>
+<canvas id="grid"></canvas>
+<script type="text/javascript">
+var canvas = document.getElementById("grid");
+var refreshButton = document.getElementById("refresh");
+
+refreshButton.onclick = retrieveAndPaintData;
+
+function retrieveAndPaintData() {
+    refreshButton.disabled = true;
+    retrieveData(function(err, data) {
+            if(!err) {
+                paintData(JSON.parse(data));
+                refreshButton.disabled = false;
+                //console.log(data);
+            }
+    });
+}
+
+function retrieveData(callback) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "/fields_data.json", true);
+    xhr.onload = function (e) {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                console.log("Retrieved data");
+                callback(null, xhr.responseText);
+            } else {
+                console.error(xhr.statusText);
+                callback(xhr.statusText);
+            }
+        }
+    };
+    xhr.onerror = function (e) {
+        console.error(xhr.statusText);
+    };
+    console.log("Requesting data")
+    xhr.send(null);
+}
+
+function findSpread(data) {
+    var max = 0;
+    var min = 0;
+    for(var x = 0; x < data.length; x++) {
+        for(var y = 0; y < data[0].length; y++) {
+            for(var i = 0; i < 2; i++) {
+                var value = data[x][y][i];
+                if(value > max) {
+                    max = value;
+                }
+                if(value < min) {
+                    min = value;
+                }
+            }
+        }
+    }
+    return max - min;
+}
+
+// from SO
+function canvas_arrow(context, fromx, fromy, tox, toy){
+    context.beginPath();
+    var headlen = 3;   // length of head in pixels
+    var angle = Math.atan2(toy-fromy,tox-fromx);
+    context.moveTo(fromx, fromy);
+    context.lineTo(tox, toy);
+    context.lineTo(tox-headlen*Math.cos(angle-Math.PI/6),toy-headlen*Math.sin(angle-Math.PI/6));
+    context.moveTo(tox, toy);
+    context.lineTo(tox-headlen*Math.cos(angle+Math.PI/6),toy-headlen*Math.sin(angle+Math.PI/6));
+    context.stroke();
+}
+
+function sign(number) {
+    return number < 0 ? -1 : 1;
+}
+
+var granularity = 30
+var g_data;
+function paintData(data) {
+    g_data = data;
+    console.log("Painting data");
+    console.log(data);
+    var ctx = canvas.getContext('2d');
+    var width = data.length * granularity;
+    var height = data[0].length * granularity;
+    console.log("width:" + width);
+    console.log("height:" + height);
+    canvas.height = height;
+    canvas.width = width;
+    var spread = findSpread(data);
+    console.log(spread);
+    for(var x = 0; x < width / granularity; x++) {
+        for(var y = 0; y < height / granularity; y++) {
+            var pfdf = data[x][y];
+            var normalized = [pfdf[0] / spread * granularity, pfdf[1] / spread * granularity];
+            var minLength = 1;
+            if(Math.abs(normalized[0]) < minLength && Math.abs(normalized[1]) < minLength) {
+                continue;
+            }
+            //normalized = [normalized[0] > minLength ? normalized[0] : sign(normalized[0]) * minLength, normalized[1] > minLength ? normalized[1] : sign(normalized[1]) * minLength]
+            var posX = x * granularity + granularity * 0.5;
+            var posY = y * granularity + granularity * 0.5;
+            var toX = posX + normalized[0];
+            var toY = posY - normalized[1];
+            canvas_arrow(ctx, posX, posY, toX, toY);
+            console.log("Drawing from ("+posX+", " + posY + ") to ("+ toX + ", " + toY + ")");
+        }
+    }
+    console.log("Done painting data");
+}
+
+</script>
+</body>
+</html>
