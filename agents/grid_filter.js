@@ -104,8 +104,8 @@ Team.prototype.updateField = function(granulariy) {
     for(var x = 0; x < me.constants.worldsize; x += granulariy) {
         for(var y = 0; y < me.constants.worldsize; y += granulariy) {
             var probOccupied = me.gridFilter[x][y];
-            console.log(x + ", " + y);
-            console.log(probOccupied);
+            //console.log(x + ", " + y);
+            //console.log(probOccupied);
             // Look for obstacles and create avoid fields at them.
             if(probOccupied > fieldOccupiedThreshold) {
                 fields.push({
@@ -223,6 +223,7 @@ function fillArray(arr, fill) {
     }
 }
 
+//Knowing the attributes of a sensor
 Team.prototype.measurementProbability = function(observation, state) {
     if(state === 1) {
         if(observation === 1) {
@@ -239,6 +240,22 @@ Team.prototype.measurementProbability = function(observation, state) {
     }
 };
 
+// Assuming a perfect sensor
+//Team.prototype.measurementProbability = function(observation, state) {
+//    if(state === 1) {
+//        if(observation === 1) {
+//            return 1;
+//        } else {
+//            return 0;
+//        }
+//    } else {
+//        if(observation === 0) {
+//            return 1;
+//        } else {
+//            return 0;
+//        }
+//    }
+//};
 
 // Grid goes for 0-800 0,0 is top left
 // occGrid pos -400 to 400 where -400,-400 is bottom left
@@ -357,7 +374,7 @@ if(process.argv.length > 2) {
                 //console.log("JSON requested");
                 res.writeHead(200, {'Content-Type': 'application/json'});
                 var fields = team.getFields(team.myTanks[0]);
-                console.log(fields);
+                //console.log(fields);
                 var fieldData = [];
                 var granularity = 30;
                 for(var x = 0; x < team.constants.worldsize / granularity; x++) {
