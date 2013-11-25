@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "dependencies": {
     "BZRFlag-nodejs-client": "benhansenslc/BZRFlag-nodejs-client",
-    "async": "~0.2.9"
+    "async": "~0.2.9",
+    "sylvester": "0.0.21"
   }
 }
