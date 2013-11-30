@@ -1,0 +1,27 @@
+constants
+{ team: 'green',
+  worldsize: 800,
+  tankangvel: '0.785398163397',
+  tanklength: '6',
+  tankradius: '4.32',
+  tankspeed: '25',
+  tankalive: 'alive',
+  tankdead: 'dead',
+  linearaccel: '0.5',
+  angularaccel: '0.5',
+  tankwidth: '2.8',
+  shotradius: '0.5',
+  shotrange: '350',
+  shotspeed: '100',
+  flagradius: '2.5',
+  explodetime: '5',
+  truepositive: '0.97',
+  truenegative: '0.9' }
+
+// Enemy tank
+{ callsign: 'red0',
+    color: 'red',
+    status: 'alive',
+    flag: '-',
+    loc: { x: -194.90052278, y: 3.62304211889 },
+    angle: 2.48303264526 }

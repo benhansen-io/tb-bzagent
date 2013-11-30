@@ -1,17 +1,10 @@
+var _ = require('underscore');
 var BZRClient = require('bzrflag-client');
 var async = require('async');
 var pf = require('../lib/potential-fields');
 
 
 /**
- * Note: This is just a sample team where all of the tanks on a team
- * are controlled with simple directions
- * 1. if there is an enemy flag that is not picked up, go get it.
- * 2. if you have a flag go back to your base
- * 3. otherwise go attack the closest enemy
- *
- * It should be a good starting point to see how the client is used.
- *
  * To use it just run:
  *    node agent.js <port>
  */
@@ -22,14 +15,32 @@ function Team(client){
     this.init();
 }
 
-Team.prototype.init = function() {
+Team.prototype.init = function(callback) {
     var me = this;
-    this.client.getMyTanks(function(myTanks, time){
-        myTanks.forEach(function(tank){
-            me.myTanks[tank.index] = tank;
-            me.lastUpdated = time;
+    async.parallel([
+        function(callback) {
+            me.client.getConstants(function(constants) {
+                me.constants = constants;
+                me.constants.worldsize = parseInt(me.constants.worldsize, 10);
+                me.constants.friction = 0.1;
+                callback();
+            });
+        },
+        function(callback) {
+            me.client.getMyTanks(function(myTanks, time){
+                myTanks.forEach(function(tank){
+                    tank.turning = false;
+                    me.myTanks[tank.index] = tank;
+                    me.lastUpdated = time;
+                });
+                callback();
+            });
+        }],
+        function() {
+            if(callback) {
+                callback(me);
+            }
         });
-    });
 };
 
 Team.prototype.update = function(done) {
@@ -41,7 +52,7 @@ Team.prototype.update = function(done) {
             client.getMyTanks(function(myTanks, time){
                 dt = time - me.lastUpdated;
                 myTanks.forEach(function(tank){
-                    me.myTanks[tank.index] = tank;
+                    me.myTanks[tank.index] = _.extend(me.myTanks[tank.index], tank);
                 });
                 me.lastUpdated = time;
                 callback();
@@ -57,12 +68,13 @@ Team.prototype.start = function() {
     var me = this;
 
     me.startTanks(function() {
+        me.setRandomInitalAngle();
         async.whilst(function() {return true;},
                      function(callback) {
                          async.series([
-                             function(callback) {console.log('Waiting'); setTimeout(callback, 8000);},
+                             function(callback) {setTimeout(callback, 1000);},
                              //me.stopTanks.bind(me),
-                             me.turnTanks.bind(me),
+                             me.tick.bind(me),
                          ],
                          callback);
                      });
@@ -70,7 +82,7 @@ Team.prototype.start = function() {
 };
 
 Team.prototype.startTanks = function(callback) {
-    console.log('Starting tanks');
+    //console.log('Starting tanks');
     var me = this;
     this.update(function(){
         async.each(Object.keys(me.myTanks), function(tankIndex, callback) {
@@ -79,35 +91,86 @@ Team.prototype.startTanks = function(callback) {
     });
 };
 
-Team.prototype.turnTanks = function(callback) {
-    console.log('Turning tanks');
+Team.prototype.setRandomInitalAngle = function(callback) {
+    //console.log('Setting random angle');
     var me = this;
     this.update(function(){
         async.each(Object.keys(me.myTanks), function(tankIndex, callback) {
-            var tank = me.myTanks[tankIndex];
-            var turnAmount = 3.14 / 2;
-            var goalAngle = pf.normalizeAngle(turnAmount + tank.angle);
-            me.turnTank(tankIndex, goalAngle, callback);
+            var randomAngle = getRandomArbitary(-Math.PI, Math.PI);
+            me.myTanks[tankIndex].goalAngle = randomAngle;
+            me.turnTank(tankIndex, randomAngle);
+            callback();
         }, callback);
     });
+};
+
+var getRandomArbitary = function(min, max) {
+    return Math.random() * (max - min) + min;
+};
+
+Team.prototype.tick = function(callback) {
+    var me = this;
+    me.update(function(dt) {
+        async.each(Object.keys(me.myTanks), function(tankIndex, callback) {
+            var tank = me.myTanks[tankIndex];
+            //console.log("loc", tank.loc);
+            me.bounceTankIfAtWall(tankIndex);
+            if(tank.turning === false &&
+               Math.abs(pf.normalizeAngle(tank.goalAngle - tank.angle)) > Math.PI / 8) {
+                tank.turning = true;
+                me.turnTank(tankIndex, tank.goalAngle, function() {
+                    tank.turning = false;
+                });
+            }
+            callback();
+        }, callback);
+    });
+};
+
+Team.prototype.bounceTankIfAtWall = function(tankIndex) {
+    var me = this;
+    var tank = me.myTanks[tankIndex];
+    var size = me.constants.worldsize / 2;
+    if(Math.abs(tank.loc.x) > size * 0.97) {
+        var movingLeft = Math.abs(tank.goalAngle) > Math.PI / 2;
+        var atLeftBorder = sign(tank.loc.x) === -1;
+        if(movingLeft === atLeftBorder) {
+            tank.goalAngle = sign(tank.goalAngle) * (Math.PI - Math.abs(tank.goalAngle));
+        }
+    } else if(Math.abs(tank.loc.y) > size * 0.97) {
+        var movingUp = sign(tank.goalAngle) === 1;
+        var atTop = sign(tank.loc.y) === 1;
+        if(movingUp === atTop) {
+            tank.goalAngle = -1 * tank.goalAngle;
+        }
+    }
+};
+
+var sign = function(number) {
+    return number?number<0?-1:1:0;
 };
 
 Team.prototype.turnTank = function(tankIndex, goalAngle, callback, lastAngle) {
     var me = this;
     this.update(function(){
-        var actualAngle = me.myTanks[tankIndex].angle;
+        var tank = me.myTanks[tankIndex];
+        var actualAngle = tank.angle;
         if(Math.abs(actualAngle - goalAngle) < 0.1) {
-            console.log('Tank ' + tankIndex + ' is done turning');
             me.client.angvel(tankIndex, 0, function () {
                 if(callback) {
                     callback();
                 }
             });
         } else {
-            var acceleration = pf.pdController(goalAngle, actualAngle, goalAngle, lastAngle, 0.5);
-            console.log('Turning tank ' + tankIndex + ' at rate of ' + acceleration + '. goalAngle: ' + goalAngle + ', actualAngle: ' + actualAngle + ', lastAngle: ' + lastAngle);
-            me.client.angvel(tankIndex, acceleration, function () {
-                setTimeout(me.turnTank.bind(me, tankIndex, goalAngle, callback, actualAngle), 500);
+            var dt = 500;
+            var angleError = pf.normalizeAngle(goalAngle - actualAngle);
+            //console.log('\tangleError: ' + angleError + '; lastAngleError: ' + tank.lastAngleError);
+            var newAngleVel = pf.pdControllerError(angleError, tank.lastAngleError, dt, 1, 0.01);
+            //console.log('Turning tank ' + tankIndex + ' at rate of ' + newAngleVel + '. goalAngle: ' + goalAngle + ', actualAngle: ' + actualAngle + ', lastAngle: ' + lastAngle);
+            //console.log('\tnewAngleVel: ' + newAngleVel);
+            tank.lastAngleError = angleError;
+            me.client.angvel(tankIndex, newAngleVel, function () {
+                setTimeout(me.turnTank.bind(me, tankIndex, goalAngle, callback, actualAngle), dt);
             });
         }
     });

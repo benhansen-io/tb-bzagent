@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+canvas {
+    border-color: black;
+    border-style: solid;
+    border-width: 2px;
+    width: 800px;
+    height: 800px;
+    display: inline-block;
+}
+#data, #control {
+    padding-left: 25px;
+    display: inline-block;
+    vertical-align: top;
+}
+#data table, #data td {
+    border-style: solid;
+    border-color: black;
+    border-width: 1px;
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+</style>
+</head>
+<body>
+<button id="refresh">Refesh</button><br>
+<canvas id="grid"></canvas>
+<div id="control">
+    <label for="timePerStep">Time per step: </label><input id="timePerStep" value="500"></input>ms<br>
+    <label for="numSteps">Number of steps: </label><input id="numSteps" value="3"></input>
+</div>
+<div id="data"></div>
+<script type="text/javascript" src="visualize_kalman.js"></script>
+</body>
+</html>

@@ -1,8 +1,12 @@
 'use strict';
 
+var _ = require('underscore');
 var async = require('async');
+var sylvester = require("sylvester");
+var Matrix = sylvester.Matrix;
 var BZRClient = require('bzrflag-client');
 var pf = require('../lib/potential-fields');
+var kalman = require('../lib/kalman_filter');
 var graphsServer = require('../lib/graphsServer');
 
 
@@ -16,6 +20,8 @@ function Team(client){
     this.myTanks = {};
 }
 
+var constants;
+
 Team.prototype.init = function(callback) {
     var me = this;
     async.parallel([
@@ -23,12 +29,7 @@ Team.prototype.init = function(callback) {
             me.client.getConstants(function(constants) {
                 me.constants = constants;
                 me.constants.worldsize = parseInt(me.constants.worldsize, 10);
-                callback();
-            });
-        },
-        function(callback) {
-            me.client.getBases(function(bases){
-                me.bases = bases;
+                me.constants.friction = 0.0;
                 callback();
             });
         },
@@ -37,6 +38,21 @@ Team.prototype.init = function(callback) {
                 myTanks.forEach(function(tank){
                     me.myTanks[tank.index] = tank;
                     me.lastUpdated = time;
+                });
+                callback();
+            });
+        },
+        function(callback) {
+            me.client.getOtherTanks(function(otherTanks){
+                var enemies = otherTanks.filter(function(tank){
+                    return tank.color != me.constants.team;
+                });
+                me.enemies = {};
+                enemies.forEach(function(enemy) {
+                    var callsign = enemy.callsign;
+                    enemy.mu = kalman.initialMu;
+                    enemy.sigma = kalman.initialSigma;
+                    me.enemies[callsign] = enemy;
                 });
                 callback();
             });
@@ -57,15 +73,7 @@ Team.prototype.update = function(done) {
             client.getMyTanks(function(myTanks, time){
                 dt = time - me.lastUpdated;
                 myTanks.forEach(function(tank){
-                    var lastVelError = me.myTanks[tank.index].lastVelError;
-                    var lastAngleError = me.myTanks[tank.index].lastAngleError;
-                    var currentFieldIndex = me.myTanks[tank.index].currentFieldIndex;
-                    var fieldRotationIncrement = me.myTanks[tank.index].fieldRotationIncrement;
-                    me.myTanks[tank.index] = tank;
-                    me.myTanks[tank.index].lastVelError = lastVelError;
-                    me.myTanks[tank.index].lastAngleError = lastAngleError;
-                    me.myTanks[tank.index].currentFieldIndex = currentFieldIndex;
-                    me.myTanks[tank.index].fieldRotationIncrement = fieldRotationIncrement;
+                    me.myTanks[tank.index] = _.extend(me.myTanks[tank.index], tank);
                 });
                 me.lastUpdated = time;
                 callback();
@@ -74,9 +82,17 @@ Team.prototype.update = function(done) {
         function(callback) {
             client.getOtherTanks(function(otherTanks){
                 me.otherTanks = otherTanks;
-                me.enemies = otherTanks.filter(function(tank){
+                var enemies = otherTanks.filter(function(tank){
                     return tank.color != me.constants.team;
                 });
+
+                enemies.forEach(function(updatedEnemy) {
+                    var callsign = updatedEnemy.callsign;
+                    var outofdateEnemy = me.enemies[callsign];
+                    me.enemies[callsign] =
+                        _.extend(outofdateEnemy, updatedEnemy);
+                });
+
                 callback();
             });
         }],
@@ -89,7 +105,7 @@ Team.prototype.update = function(done) {
 Team.prototype.start = function() {
     var me = this;
 
-    var tickSpeed = -1; // -1 means tick as fast as possible
+    var tickSpeed = 100; // -1 means tick as fast as possible
     var start = 0;
 
     async.whilst(function() {return true;},
@@ -101,7 +117,7 @@ Team.prototype.start = function() {
                              var elapsed = new Date().getTime() - start;
                              if(elapsed > tickSpeed) {
                                  if(tickSpeed != -1) {
-                                     console.log("Missed tick by " + (elapsed - tickSpeed) + " milliseconds.");
+                                     console.log('Missed tick by ' + (elapsed - tickSpeed) + ' milliseconds.');
                                  }
                                  callback();
                              } else {
@@ -115,10 +131,24 @@ Team.prototype.start = function() {
 
 var tickCount = 0;
 Team.prototype.tick = function(callback) {
+    tickCount++;
     var me = this;
     this.update(function(dt){
-        tickCount++;
         //console.log('World updated after ' + dt + ' seconds');
+
+        for(var callsign in me.enemies) {
+            var otherTank = me.enemies[callsign];
+            var observation = Matrix.create([
+                [otherTank.loc.x],
+                [otherTank.loc.y]]);
+            var updatedVals = kalman.updateKalman(otherTank.mu,
+                                                  otherTank.sigma,
+                                                  observation,
+                                                  dt,
+                                                  me.constants.friction);
+            otherTank.mu = updatedVals.mu;
+            otherTank.sigma = updatedVals.sigma;
+        }
 
         for(var tankIndex in me.myTanks) {
             //console.log('Updating tank ' + tankIndex + ':');
@@ -151,5 +181,5 @@ if(process.argv.length > 2) {
         graphsServer.start(team);
     });
 } else {
-  console.log("Please specify port number to connect to.");
+  console.log('Please specify port number to connect to.');
 }

@@ -4,6 +4,11 @@
   "dependencies": {
     "BZRFlag-nodejs-client": "benhansenslc/BZRFlag-nodejs-client",
     "async": "~0.2.9",
-    "sylvester": "0.0.21"
+    "sylvester": "0.0.21",
+    "underscore": "~1.5.2",
+    "browserify": "~2.35.4"
+  },
+  "devDependencies": {
+    "jasmine-node": "~1.11.0"
   }
 }
