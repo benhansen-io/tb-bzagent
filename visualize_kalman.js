@@ -162,5 +162,7 @@ var paintData = function(data) {
   dataDiv.innerHTML = dataHTML;
 };
 
+document.addEventListener('keypress', retrieveAndPaintData);
+
 refreshButton.onclick = retrieveAndPaintData;
 retrieveAndPaintData();

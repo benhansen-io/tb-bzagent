@@ -30,9 +30,10 @@ Team.prototype.init = function(callback) {
             me.client.getMyTanks(function(myTanks, time){
                 myTanks.forEach(function(tank){
                     tank.turning = false;
+                    tank.wasDead = true;
                     me.myTanks[tank.index] = tank;
-                    me.lastUpdated = time;
                 });
+                me.lastUpdated = time;
                 callback();
             });
         }],
@@ -67,41 +68,27 @@ Team.prototype.update = function(done) {
 Team.prototype.start = function() {
     var me = this;
 
-    me.startTanks(function() {
-        me.setRandomInitalAngle();
-        async.whilst(function() {return true;},
-                     function(callback) {
-                         async.series([
-                             function(callback) {setTimeout(callback, 1000);},
-                             //me.stopTanks.bind(me),
-                             me.tick.bind(me),
-                         ],
-                         callback);
-                     });
-    });
+    async.whilst(function() {return true;},
+                 function(callback) {
+                   async.series([
+                     function(callback) {setTimeout(callback, 1000);},
+                     //me.stopTanks.bind(me),
+                     me.tick.bind(me),
+                   ],
+                   callback);
+                 });
 };
 
-Team.prototype.startTanks = function(callback) {
-    //console.log('Starting tanks');
-    var me = this;
-    this.update(function(){
-        async.each(Object.keys(me.myTanks), function(tankIndex, callback) {
-            me.client.speed(tankIndex, 1, function() {callback();});
-        }, callback);
-    });
+Team.prototype.startTank = function(tankIndex, callback) {
+  var me = this;
+  me.client.speed(tankIndex, 1, function() {if(callback) callback();});
 };
 
-Team.prototype.setRandomInitalAngle = function(callback) {
-    //console.log('Setting random angle');
-    var me = this;
-    this.update(function(){
-        async.each(Object.keys(me.myTanks), function(tankIndex, callback) {
-            var randomAngle = getRandomArbitary(-Math.PI, Math.PI);
-            me.myTanks[tankIndex].goalAngle = randomAngle;
-            me.turnTank(tankIndex, randomAngle);
-            callback();
-        }, callback);
-    });
+Team.prototype.setRandomInitalAngle = function(tankIndex, callback) {
+  var me = this;
+  var randomAngle = getRandomArbitary(-Math.PI / 2, Math.PI / 2);
+  me.myTanks[tankIndex].goalAngle = randomAngle;
+  me.turnTank(tankIndex, randomAngle, callback);
 };
 
 var getRandomArbitary = function(min, max) {
@@ -113,6 +100,19 @@ Team.prototype.tick = function(callback) {
     me.update(function(dt) {
         async.each(Object.keys(me.myTanks), function(tankIndex, callback) {
             var tank = me.myTanks[tankIndex];
+            if(tank.status != 'alive') {
+              console.log(tankIndex + ' died.');
+              tank.wasDead = true;
+            } else {
+              if(tank.wasDead) {
+                console.log(tankIndex + ' reborn.');
+                me.setRandomInitalAngle(tankIndex);
+                me.startTank(tankIndex);
+                tank.wasDead = false;
+              }
+            }
+
+            console.log(tank.goalAngle);
             //console.log("loc", tank.loc);
             me.bounceTankIfAtWall(tankIndex);
             if(tank.turning === false &&
@@ -165,7 +165,7 @@ Team.prototype.turnTank = function(tankIndex, goalAngle, callback, lastAngle) {
             var dt = 500;
             var angleError = pf.normalizeAngle(goalAngle - actualAngle);
             //console.log('\tangleError: ' + angleError + '; lastAngleError: ' + tank.lastAngleError);
-            var newAngleVel = pf.pdControllerError(angleError, tank.lastAngleError, dt, 1, 0.01);
+            var newAngleVel = pf.pdControllerError(angleError, tank.lastAngleError, dt, 2, 0.01);
             //console.log('Turning tank ' + tankIndex + ' at rate of ' + newAngleVel + '. goalAngle: ' + goalAngle + ', actualAngle: ' + actualAngle + ', lastAngle: ' + lastAngle);
             //console.log('\tnewAngleVel: ' + newAngleVel);
             tank.lastAngleError = angleError;

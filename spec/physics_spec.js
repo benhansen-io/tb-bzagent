@@ -33,3 +33,44 @@ describe('normalDistrobution', function() {
         expect(distrobution(Matrix.create([[-1], [1]]))).toBeCloseTo(0.0585, 3);
     });
 });
+
+describe('binary search on functions', function() {
+  it('should handle the simple case of finding an integer', function() {
+    var searchMe = function(searchedValue) {
+      return 8.666 - searchedValue;
+    };
+    var result = physics.binarySearchFunction(searchMe, 0, 100, 0.01, 0.00001);
+    expect(result).toBeCloseTo(8.666, 2);
+  });
+});
+
+describe('findAngleForImpact', function() {
+  it('should find a simple, contrived case', function() {
+    var shotSpeed = 100;
+    var frictionConstant = 0;
+    var enemyMu = Matrix.create([ // one second away from origin at constant velocity
+      [-10],
+      [10],
+      [0],
+      [0],
+      [0],
+      [0]]);
+    var myLoc = [0, -100]; // one second away from origin by bullet from origin
+    var angle = physics.findAngleForImpact(enemyMu, myLoc, shotSpeed, frictionConstant);
+    expect(angle).toBeCloseTo(Math.PI / 2, 3);
+  });
+  it('should find a simple, contrived case that is backwards', function() {
+    var shotSpeed = 100;
+    var frictionConstant = 0;
+    var enemyMu = Matrix.create([ // one second away from origin at constant velocity
+      [-10],
+      [10],
+      [0],
+      [0],
+      [0],
+      [0]]);
+    var myLoc = [0, 100]; // one second away from origin by bullet from origin
+    var angle = physics.findAngleForImpact(enemyMu, myLoc, shotSpeed, frictionConstant);
+    expect(angle).toBeCloseTo(-Math.PI / 2, 3);
+  });
+});
