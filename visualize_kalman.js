@@ -108,7 +108,7 @@ var twoDArrayToHTML = function(array) {
   array.forEach(function(row) {
     html += '<tr>';
     row.forEach(function(col) {
-      html += '<td>' + round(col, 5) + '</td>';
+      html += '<td>' + round(col, 3) + '</td>';
       //html += '<td>' + col + '</td>';
     });
     html += '</tr>';

@@ -131,6 +131,10 @@ Team.prototype.start = function() {
                });
 };
 
+function sign(number) {
+    return number < 0 ? -1 : 1;
+}
+
 var tickCount = 0;
 Team.prototype.tick = function(callback) {
   tickCount++;
@@ -160,23 +164,41 @@ Team.prototype.tick = function(callback) {
     for(var tankIndex in me.myTanks) {
       //console.log('Updating tank ' + tankIndex + ':');
       var tank = me.myTanks[tankIndex];
+      var tankLoc = [tank.loc.x, tank.loc.y];
       var targetEnemy = me.enemies[Object.keys(me.enemies)[0]];
 
       // angle pd
       var goalAngle = physics.findAngleForImpact(targetEnemy.mu,
-                                                 [tank.loc.x, tank.loc.y],
+                                                 tankLoc,
                                                  me.constants.shotspeed,
                                                  me.constants.friction);
 
-       //console.log('goalAngle:', goalAngle);
        var actualAngle = tank.angle;
-       //console.log('\tactualAngle: ' + actualAngle);
        var angleError = pf.normalizeAngle(goalAngle - actualAngle);
-       //console.log('\tangleError: ' + angleError + '; lastAngleError: ' + tank.lastAngleError);
-       var newAngleVel = pf.pdControllerError(angleError, tank.lastAngleError, dt, 1, 0.01);
-       //console.log('newAngleVel:' + newAngleVel);
+       var pdAngVel = pf.pdControllerError(angleError, tank.lastAngleError, dt, 1, 0.05);
        tank.lastAngleError = angleError;
-       me.client.angvel(tankIndex, newAngleVel);
+
+       // We might want to change the angular velocity based on the expected movement of tank
+       var timeInFutureToPredict = 0.3;
+       var radiansPerSecondToAngVel = 1 / (Math.PI * 2 / 8); // 8 seconds for a rotation
+       var currentPoint = physics.muToCenterPoint(targetEnemy.mu);
+       var currentAngle = pf.angle(tankLoc, currentPoint);
+       var futurePoint = physics.muToCenterPoint(physics.F(timeInFutureToPredict, me.constants.friction).x(targetEnemy.mu));
+       var futureAngle = pf.angle(tankLoc, futurePoint);
+
+       var angleDiff = pf.normalizeAngle(futureAngle - currentAngle);
+       var neededTankMatchAngVel = angleDiff / timeInFutureToPredict * radiansPerSecondToAngVel;
+       var newAngVel = pdAngVel;
+       if(sign(pdAngVel) === sign(neededTankMatchAngVel)) {
+         if(Math.abs(neededTankMatchAngVel) > Math.abs(pdAngVel)) {
+           console.log('using tankMatch difference of ' + (neededTankMatchAngVel - pdAngVel));
+           newAngVel = neededTankMatchAngVel;
+         }
+       }
+
+
+
+       me.client.angvel(tankIndex, newAngVel);
 
        if(angleError < 0.05) {
          if(tank.shotsAvailable > 0) {

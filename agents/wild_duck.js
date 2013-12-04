@@ -86,6 +86,14 @@ Team.prototype.update = function(done) {
 Team.prototype.start = function() {
   var me = this;
 
+  console.log('Starting 2');
+  console.log(Object.keys(me.myTanks));
+  async.each(Object.keys(me.myTanks), function(tankIndex, callback) {
+    console.log('Inside');
+    setInterval(me.setRandomInitalAngle.bind(me, tankIndex), 5000);
+    setInterval(me.setRandomSpeed.bind(me, tankIndex), 4000);
+  });
+
   async.whilst(function() {return true;},
                function(callback) {
                  async.series([
@@ -102,9 +110,16 @@ Team.prototype.startTank = function(tankIndex, callback) {
   me.client.speed(tankIndex, 1, function() {if(callback) callback();});
 };
 
+Team.prototype.setRandomSpeed = function(tankIndex, callback) {
+  var me = this;
+  var randomSpeed = getRandomArbitary(0, 1);
+  console.log('Setting random speed: ' + randomSpeed);
+  me.client.speed(tankIndex, randomSpeed, function() {if(callback) callback();});
+};
+
 Team.prototype.setRandomInitalAngle = function(tankIndex, callback) {
   var me = this;
-  var randomAngle = getRandomArbitary(-Math.PI / 2, Math.PI / 2);
+  var randomAngle = getRandomArbitary(-Math.PI, Math.PI);
   me.myTanks[tankIndex].goalAngle = randomAngle;
   me.turnTank(tankIndex, randomAngle, callback);
 };
@@ -195,7 +210,8 @@ Team.prototype.turnTank = function(tankIndex, goalAngle, callback) {
 
 if(process.argv.length > 2){
   var port = process.argv[2];
-  var team = new Team(new BZRClient(port));
   console.log('Starting');
-  team.start();
+  new Team(new BZRClient(port)).init(function(team) {
+    team.start();
+  });
 }
